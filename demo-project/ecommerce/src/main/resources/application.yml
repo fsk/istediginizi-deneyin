@@ -1,0 +1,83 @@
+spring:
+  application:
+    name: ecommerce
+  
+  # ANSI Color Output
+  output:
+    ansi:
+      enabled: always
+
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:2345/ecommerce
+    username: fsk
+    password: fsk
+    driver-class-name: org.postgresql.Driver
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+
+  # Redis Configuration
+  data:
+    redis:
+      host: localhost
+      port: 9736
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+  # RabbitMQ Configuration
+  rabbitmq:
+    host: localhost
+    port: 2765
+    username: fsk
+    password: fsk
+    virtual-host: /
+    listener:
+      simple:
+        acknowledge-mode: auto
+        concurrency: 3
+        max-concurrency: 10
+        prefetch: 1
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+# Server Configuration
+server:
+  port: 7070
+  servlet:
+    context-path: /api
+
+# Logging Configuration
+logging:
+  level:
+    org:
+      hibernate:
+        orm:
+          queries: DEBUG
+    root: INFO
+    com.fsk.ecommerce: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  charset:
+    console: UTF-8
+    file: UTF-8
+

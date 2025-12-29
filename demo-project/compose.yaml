@@ -1,0 +1,22 @@
+name: ecommerce-data
+services:
+  postgres:
+    image: 'postgres:latest'
+    environment:
+      - 'POSTGRES_DB=ecommerce'
+      - 'POSTGRES_PASSWORD=fsk'
+      - 'POSTGRES_USER=fsk'
+    ports:
+      - '2345:5432'
+  rabbitmq:
+    image: 'rabbitmq:latest'
+    environment:
+      - 'RABBITMQ_DEFAULT_PASS=fsk'
+      - 'RABBITMQ_DEFAULT_USER=fsk'
+    ports:
+      - '2765:5672'
+      - '27651:15672'
+  redis:
+    image: 'redis:latest'
+    ports:
+      - '9736:6379'
