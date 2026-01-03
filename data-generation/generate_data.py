@@ -3,6 +3,7 @@ from psycopg.rows import tuple_row
 from faker import Faker
 import random
 import uuid
+from datetime import timedelta
 
 fake = Faker()
 random.seed(42)
@@ -165,6 +166,30 @@ PRODUCT_CATEGORIES = [
     "Sports & Outdoors", "Toys & Games", "Beauty & Personal Care",
     "Automotive", "Food & Beverages", "Health & Wellness"
 ]
+
+# Categories için hiyerarşik yapı
+CATEGORIES_DATA = [
+    {"name": "Electronics", "description": "Electronic devices and accessories"},
+    {"name": "Computers", "description": "Laptops, desktops, and computer accessories", "parent": "Electronics"},
+    {"name": "Smartphones", "description": "Mobile phones and accessories", "parent": "Electronics"},
+    {"name": "TV & Audio", "description": "Televisions and audio equipment", "parent": "Electronics"},
+    {"name": "Clothing", "description": "Apparel and fashion items"},
+    {"name": "Men's Clothing", "description": "Clothing for men", "parent": "Clothing"},
+    {"name": "Women's Clothing", "description": "Clothing for women", "parent": "Clothing"},
+    {"name": "Kids' Clothing", "description": "Clothing for children", "parent": "Clothing"},
+    {"name": "Books", "description": "Books and publications"},
+    {"name": "Fiction", "description": "Fictional books", "parent": "Books"},
+    {"name": "Non-Fiction", "description": "Non-fiction books", "parent": "Books"},
+    {"name": "Home & Garden", "description": "Home and garden products"},
+    {"name": "Furniture", "description": "Home furniture", "parent": "Home & Garden"},
+    {"name": "Kitchen & Dining", "description": "Kitchen and dining products", "parent": "Home & Garden"},
+    {"name": "Sports & Outdoors", "description": "Sports and outdoor equipment"},
+    {"name": "Fitness", "description": "Fitness equipment and gear", "parent": "Sports & Outdoors"},
+    {"name": "Outdoor Recreation", "description": "Outdoor recreation products", "parent": "Sports & Outdoors"},
+]
+
+CART_STATUSES = ["ACTIVE", "CONVERTED", "ABANDONED", "EXPIRED"]
+CART_STATUS_WEIGHTS = [0.60, 0.25, 0.10, 0.05]
 
 BRANDS = [
     "TechCorp", "StyleBrand", "HomeEssentials", "SportMax",
@@ -421,6 +446,64 @@ def generate_data():
 
             print(f"Products inserted: {len(product_ids)}")
 
+            # 3.4. CATEGORIES
+            print("Generating categories")
+            category_ids_map = {}  # category_name -> category_id
+            parent_category_ids = {}  # For parent categories
+            
+            # Önce parent kategorileri oluştur
+            for cat_data in CATEGORIES_DATA:
+                if "parent" not in cat_data:
+                    category_id = str(uuid.uuid4())
+                    category_ids_map[cat_data["name"]] = category_id
+                    parent_category_ids[cat_data["name"]] = category_id
+                    
+                    cur.execute(
+                        """
+                        INSERT INTO categories 
+                        (category_id, name, description, created_at)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT DO NOTHING
+                        """,
+                        (
+                            category_id,
+                            cat_data["name"],
+                            cat_data.get("description"),
+                            fake.date_time_between(start_date="-2y")
+                        )
+                    )
+                    conn.commit()
+            
+            # Sonra child kategorileri oluştur
+            for cat_data in CATEGORIES_DATA:
+                if "parent" in cat_data:
+                    parent_name = cat_data["parent"]
+                    if parent_name in parent_category_ids:
+                        category_id = str(uuid.uuid4())
+                        category_ids_map[cat_data["name"]] = category_id
+                        
+                        cur.execute(
+                            """
+                            INSERT INTO categories 
+                            (category_id, name, description, parent_category_id, created_at)
+                            VALUES (%s, %s, %s, %s, %s)
+                            ON CONFLICT DO NOTHING
+                            """,
+                            (
+                                category_id,
+                                cat_data["name"],
+                                cat_data.get("description"),
+                                parent_category_ids[parent_name],
+                                fake.date_time_between(start_date="-1y")
+                            )
+                        )
+                        conn.commit()
+            
+            # Tüm category ID'leri al
+            cur.execute("SELECT category_id, name FROM categories")
+            all_category_ids = {row[1]: row[0] for row in cur.fetchall()}
+            print(f"Categories inserted: {len(all_category_ids)}")
+
             # 3.5. HOBBIES
             print("Generating hobbies")
             hobby_ids_map = {}  # hobby_name -> hobby_id
@@ -626,6 +709,283 @@ def generate_data():
                 )
 
                 conn.commit()
+
+            # 8. ORDER HISTORY
+            print("Generating order history")
+            cur.execute("SELECT order_id, status, order_date FROM orders ORDER BY order_date")
+            orders_data = cur.fetchall()
+            
+            # Status sıralaması
+            status_order = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED"]
+            
+            for i in range(0, len(orders_data), BATCH_SIZE):
+                batch = []
+                for order_id, current_status, order_date in orders_data[i:i + BATCH_SIZE]:
+                    status_sequence = []
+                    
+                    if current_status in status_order:
+                        current_idx = status_order.index(current_status)
+                        status_sequence = status_order[:current_idx + 1]
+                    elif current_status == "CANCELLED":
+                        status_sequence = ["PENDING", "CONFIRMED", "CANCELLED"]
+                    elif current_status == "REFUNDED":
+                        status_sequence = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "REFUNDED"]
+                    
+                    base_date = order_date
+                    for idx, status in enumerate(status_sequence):
+                        changed_at = base_date + timedelta(days=idx, hours=random.randint(1, 24))
+                        
+                        changed_by = random.choice(user_ids) if random.random() < 0.7 else None
+                        
+                        notes = None
+                        if status in ["CANCELLED", "REFUNDED"] and random.random() < 0.3:
+                            notes = fake.text(max_nb_chars=100)
+                        
+                        batch.append((
+                            str(uuid.uuid4()),
+                            order_id,
+                            status,
+                            changed_at,
+                            changed_by,
+                            notes
+                        ))
+                
+                if batch:
+                    cur.executemany(
+                        """
+                        INSERT INTO order_history
+                        (history_id, order_id, status, changed_at, changed_by, notes)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        """,
+                        batch
+                    )
+                    conn.commit()
+            
+            print("Order history inserted")
+
+            # 9. WISHLIST
+            print("Generating wishlist")
+            wishlist_users = random.sample(user_ids, k=int(len(user_ids) * random.uniform(0.5, 0.8)))
+            
+            for i in range(0, len(wishlist_users), BATCH_SIZE):
+                batch = []
+                for user_id in wishlist_users[i:i + BATCH_SIZE]:
+                    num_wishlist_items = random.randint(1, 20)
+                    selected_products = random.sample(product_ids, min(num_wishlist_items, len(product_ids)))
+                    
+                    for product_id in selected_products:
+                        batch.append((
+                            str(uuid.uuid4()),
+                            user_id,
+                            product_id,
+                            fake.date_time_between(start_date="-1y")
+                        ))
+                
+                if batch:
+                    cur.executemany(
+                        """
+                        INSERT INTO wishlist
+                        (wishlist_id, user_id, product_id, added_at)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (user_id, product_id) DO NOTHING
+                        """,
+                        batch
+                    )
+                    conn.commit()
+            
+            print("Wishlist inserted")
+
+            # 10. PRODUCT REVIEWS (Optimized for speed - 15 min target)
+            print("Generating product reviews")
+            # Satın alınmış ürünlerin %20-35'sine yorum yazılsın (daha agresif azaltma)
+            cur.execute("SELECT DISTINCT product_id FROM order_items")
+            reviewed_products = [row[0] for row in cur.fetchall()]
+            reviewed_products = random.sample(reviewed_products, k=int(len(reviewed_products) * random.uniform(0.2, 0.35)))
+            
+            # Basit comment pool (fake.text çok yavaş)
+            SIMPLE_COMMENTS = [
+                "Great product!", "Good value for money", "Highly recommend", 
+                "Not bad", "Could be better", "Excellent quality", "Fast shipping",
+                "As described", "Very satisfied", "Good product", None, None, None
+            ]
+            
+            # Tüm review'ları önce topla, sonra batch batch insert et
+            all_reviews = []
+            processed = 0
+            for product_id in reviewed_products:
+                # Her ürüne 1-15 arası yorum (25'ten 15'e düşürüldü)
+                num_reviews = random.randint(1, 15)
+                reviewers = random.sample(user_ids, min(num_reviews, len(user_ids)))
+                
+                for user_id in reviewers:
+                    rating = random.choices([1, 2, 3, 4, 5], weights=[0.05, 0.10, 0.15, 0.30, 0.40], k=1)[0]
+                    comment = random.choice(SIMPLE_COMMENTS)  # fake.text yerine hazır comment
+                    created_at = fake.date_time_between(start_date="-6m")
+                    updated_at = None  # updated_at'ı kaldırdık (daha hızlı)
+                    
+                    all_reviews.append((
+                        str(uuid.uuid4()),
+                        product_id,
+                        user_id,
+                        rating,
+                        comment,
+                        created_at,
+                        updated_at
+                    ))
+                
+                processed += 1
+                if processed % 5000 == 0:
+                    print(f"  {processed}/{len(reviewed_products)} product işlendi, {len(all_reviews)} review hazır...", end='\r')
+            
+            # Şimdi batch batch insert et
+            print(f"\n  Toplam {len(all_reviews)} review oluşturuldu, ekleniyor...")
+            for i in range(0, len(all_reviews), BATCH_SIZE):
+                batch = all_reviews[i:i + BATCH_SIZE]
+                cur.executemany(
+                    """
+                    INSERT INTO product_reviews
+                    (review_id, product_id, user_id, rating, comment, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (product_id, user_id) DO NOTHING
+                    """,
+                    batch
+                )
+                conn.commit()
+                if (i + BATCH_SIZE) % (BATCH_SIZE * 5) == 0:
+                    print(f"  {min(i + BATCH_SIZE, len(all_reviews))}/{len(all_reviews)} review eklendi...", end='\r')
+            
+            print(f"\nProduct reviews inserted: {len(all_reviews)}")
+
+            # 11. CARTS
+            print("Generating carts")
+            num_cart_users = int(len(user_ids) * random.uniform(0.5, 0.8))
+            cart_users = random.sample(user_ids, k=num_cart_users)
+            
+            cart_ids_list = []
+            for i in range(0, len(cart_users), BATCH_SIZE):
+                batch = []
+                for user_id in cart_users[i:i + BATCH_SIZE]:
+                    cart_id = str(uuid.uuid4())
+                    cart_ids_list.append(cart_id)
+                    
+                    status = random.choices(CART_STATUSES, weights=CART_STATUS_WEIGHTS, k=1)[0]
+                    created_at = fake.date_time_between(start_date="-1y")
+                    expires_at = created_at + timedelta(days=30) if status == "ACTIVE" else None
+                    updated_at = fake.date_time_between(start_date=created_at) if random.random() < 0.5 else None
+                    
+                    converted_order_id = None
+                    total_amount = 0.0
+                    item_count = 0
+                    
+                    batch.append((
+                        cart_id,
+                        user_id,
+                        status,
+                        total_amount,
+                        item_count,
+                        created_at,
+                        updated_at,
+                        expires_at,
+                        converted_order_id
+                    ))
+                
+                if batch:
+                    cur.executemany(
+                        """
+                        INSERT INTO carts
+                        (cart_id, user_id, status, total_amount, item_count, created_at, updated_at, expires_at, converted_order_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        batch
+                    )
+                    conn.commit()
+            
+            print(f"Carts inserted: {len(cart_ids_list)}")
+
+            # 12. CART_ITEMS
+            print("Generating cart items")
+            cur.execute("SELECT cart_id, status FROM carts WHERE status IN ('ACTIVE', 'CONVERTED')")
+            active_carts = cur.fetchall()
+            
+            total_cart_items = 0
+            processed = 0
+            for cart_id, cart_status in active_carts:
+                num_items = random.randint(1, 15)
+                selected_products = random.sample(product_ids, min(num_items, len(product_ids)))
+                
+                cart_total = 0.0
+                batch = []
+                for product_id in selected_products:
+                    cur.execute("SELECT price FROM products WHERE product_id = %s", (product_id,))
+                    product_price_result = cur.fetchone()
+                    if product_price_result:
+                        product_price = product_price_result[0]
+                        
+                        quantity = random.randint(1, 5)
+                        unit_price = float(product_price)
+                        subtotal = round(unit_price * quantity, 2)
+                        cart_total += subtotal
+                        
+                        added_at = fake.date_time_between(start_date="-6m")
+                        updated_at = fake.date_time_between(start_date=added_at) if random.random() < 0.2 else None
+                        
+                        batch.append((
+                            str(uuid.uuid4()),
+                            cart_id,
+                            product_id,
+                            quantity,
+                            unit_price,
+                            subtotal,
+                            added_at,
+                            updated_at
+                        ))
+                
+                if batch:
+                    cur.executemany(
+                        """
+                        INSERT INTO cart_items
+                        (cart_item_id, cart_id, product_id, quantity, unit_price, subtotal, added_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (cart_id, product_id) DO NOTHING
+                        """,
+                        batch
+                    )
+                    total_cart_items += len(batch)
+                    
+                    cur.execute(
+                        """
+                        UPDATE carts 
+                        SET total_amount = %s, item_count = %s 
+                        WHERE cart_id = %s
+                        """,
+                        (cart_total, len(selected_products), cart_id)
+                    )
+                    conn.commit()
+                
+                processed += 1
+                if processed % 1000 == 0:
+                    print(f"  {processed}/{len(active_carts)} cart işlendi, {total_cart_items} item eklendi...", end='\r')
+            
+            print(f"\nCart items inserted: {total_cart_items}")
+
+            print("Updating converted carts with order_ids")
+            cur.execute("""
+                UPDATE carts c
+                SET converted_order_id = o.order_id
+                FROM (
+                    SELECT DISTINCT ON (user_id) 
+                        user_id, 
+                        order_id
+                    FROM orders
+                    ORDER BY user_id, order_date DESC
+                ) o
+                WHERE c.user_id = o.user_id 
+                    AND c.status = 'CONVERTED' 
+                    AND c.converted_order_id IS NULL
+            """)
+            updated_count = cur.rowcount
+            conn.commit()
+            print(f"Cart conversions updated: {updated_count}")
 
             print("Data generation finished successfully")
 
