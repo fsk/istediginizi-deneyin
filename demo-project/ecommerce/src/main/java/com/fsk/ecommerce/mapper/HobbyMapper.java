@@ -7,6 +7,7 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface HobbyMapper {
+    
     @Mapping(source = "id", target = "hobbyId")
     HobbyDTO toDTO(Hobby hobby);
 }

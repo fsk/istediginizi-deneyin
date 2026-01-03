@@ -69,6 +69,8 @@ logging:
       hibernate:
         orm:
           queries: DEBUG
+          jdbc:
+            binging: TRACE
     root: INFO
     com.fsk.ecommerce: DEBUG
     org.springframework.web: INFO

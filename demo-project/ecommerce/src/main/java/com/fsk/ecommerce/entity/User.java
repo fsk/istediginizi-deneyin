@@ -22,6 +22,7 @@ import java.util.UUID;
 public class User {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "user_id", columnDefinition = "uuid")
     private UUID id;
 
@@ -57,9 +58,11 @@ public class User {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    //@OrderColumn(name = "address_order")
     private List<Address> addresses = new ArrayList<>();
 
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    //@OrderColumn(name = "order_number")
     private List<CreditCard> creditCards = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)

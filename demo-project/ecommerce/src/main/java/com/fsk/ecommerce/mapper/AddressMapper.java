@@ -7,6 +7,7 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface AddressMapper {
+    
     @Mapping(source = "id", target = "addressId")
     AddressDTO toDTO(Address address);
 }

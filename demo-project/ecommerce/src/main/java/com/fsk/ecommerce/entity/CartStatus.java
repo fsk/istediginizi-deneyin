@@ -1,4 +1,8 @@
 package com.fsk.ecommerce.entity;
 
-public class CartStatus {
+public enum CartStatus {
+    ACTIVE,
+    CONVERTED,
+    ABANDONED,
+    EXPIRED
 }

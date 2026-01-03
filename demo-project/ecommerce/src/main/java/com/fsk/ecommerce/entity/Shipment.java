@@ -18,6 +18,7 @@ import java.util.UUID;
 public class Shipment {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "shipment_id", columnDefinition = "uuid")
     private UUID id;
 

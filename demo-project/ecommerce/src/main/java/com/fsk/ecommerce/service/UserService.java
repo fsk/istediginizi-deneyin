@@ -4,6 +4,8 @@ import com.fsk.ecommerce.mapper.UserMapper;
 import com.fsk.ecommerce.mapper.dto.UserDTO;
 import com.fsk.ecommerce.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +20,15 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public List<UserDTO> userDTOList() {
-        return userRepository.findAllUserDetails().stream().map(userMapper::toDTO).toList();
+        userRepository.findAllWithAddresses();
+        userRepository.findAllWithCards();
+        return userRepository.findAllWithHobbies().stream().map(userMapper::toDTO).toList();
+        //return userRepository.findAllUserDetails().stream().map(userMapper::toDTO).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<UserDTO> findAll(Pageable pageable) {
+        return userRepository.findAll(pageable).map(userMapper::toDTO);
     }
 
 }
