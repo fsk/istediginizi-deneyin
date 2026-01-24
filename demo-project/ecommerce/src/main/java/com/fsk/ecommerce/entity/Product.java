@@ -52,6 +52,15 @@ public class Product {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    public boolean checkQuantity(Integer quantity) {
+        return stockQuantity > quantity;
+    }
+
+    public void updateProduct(Integer quantityToReduce) {
+        this.stockQuantity = this.stockQuantity - quantityToReduce;
+        this.updatedAt = LocalDateTime.now();
+    }
 }
 
 

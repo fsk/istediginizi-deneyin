@@ -1,6 +1,5 @@
 package com.fsk.ecommerce.controller;
 
-import com.fsk.ecommerce.entity.Address;
 import com.fsk.ecommerce.mapper.dto.AddressDTO;
 import com.fsk.ecommerce.service.AddressService;
 import lombok.RequiredArgsConstructor;

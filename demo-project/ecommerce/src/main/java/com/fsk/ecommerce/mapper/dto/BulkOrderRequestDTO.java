@@ -5,16 +5,17 @@ import java.util.List;
 import java.util.UUID;
 
 @Data
-public class OrderRequestDTO {
+public class BulkOrderRequestDTO {
     private UUID userId;
-    private List<OrderItemRequestDTO> items;
-    private String notes;
     private UUID shippingAddressId;
     private UUID billingAddressId;
+    private String notes;
+    private List<BulkOrderItemDTO> items;
 
     @Data
-    public static class OrderItemRequestDTO {
+    public static class BulkOrderItemDTO {
         private UUID productId;
         private Integer quantity;
     }
 }
+

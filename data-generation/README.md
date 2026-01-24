@@ -43,3 +43,4 @@ python generate_data.py
 - Her yeni terminal oturumunda `source venv/bin/activate` komutunu çalıştırmanız gerekir
 - Scriptler PostgreSQL veritabanına bağlanır (connection bilgileri script içinde tanımlı)
 
+
