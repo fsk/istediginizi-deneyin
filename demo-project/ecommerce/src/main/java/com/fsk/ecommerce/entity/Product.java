@@ -23,6 +23,7 @@ public class Product {
     @Column(name = "product_id", columnDefinition = "uuid")
     private UUID id;
 
+
     @Column(nullable = false)
     private String name;
 
@@ -52,6 +53,15 @@ public class Product {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    public boolean checkQuantity(Integer quantity) {
+        return stockQuantity > quantity;
+    }
+
+    public void updateProduct(int quantityToReduce) {
+        stockQuantity = stockQuantity - quantityToReduce;
+        updatedAt = LocalDateTime.now();
+    }
 }
 
 
