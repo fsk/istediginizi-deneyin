@@ -23,6 +23,7 @@ public interface ProductMapper {
     @Mapping(target = "imageUrl", ignore = true)
     @Mapping(target = "sku", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "stockQuantity", expression = "java(product.getStockQuantity() + quantityToAdd)")
     @Mapping(target = "updatedAt", expression = "java(LocalDateTime.now())")
     void restoreStock(@MappingTarget Product product, Integer quantityToAdd);

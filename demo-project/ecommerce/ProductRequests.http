@@ -1,0 +1,14 @@
+### GET request to example server
+GET https://examples.http-client.intellij.net/get
+    ?generated-in=IntelliJ IDEA
+
+###
+
+
+# curl -X POST "http://localhost:7070/api/products/75518cfa-1bbd-4126-9c26-f0b601fce8ce/test-concurrent-update?quantity1=20&quantity2=15"
+#     -H "Content-Type: application/json"
+POST http://localhost:7070/api/products/75518cfa-1bbd-4126-9c26-f0b601fce8ce/test-concurrent-update?quantity1=20&
+    quantity2=15
+Content-Type: application/json
+
+###

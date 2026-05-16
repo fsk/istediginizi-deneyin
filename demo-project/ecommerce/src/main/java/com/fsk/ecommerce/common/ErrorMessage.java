@@ -14,7 +14,8 @@ public enum ErrorMessage {
     ADDRESS_NOT_FOUND("Address not found"),
     ORDER_NOT_FOUND("Order not found"),
     ORDER_ALREADY_CANCELLED("Order is already cancelled"),
-    INVALID_STATUS_TRANSITION("Invalid status transition");
+    INVALID_STATUS_TRANSITION("Invalid status transition"),
+    OPTIMISTIC_LOCKING_FAILED("The entity has been modified by another transaction. Please refresh and try again.");
 
     private final String message;
 
