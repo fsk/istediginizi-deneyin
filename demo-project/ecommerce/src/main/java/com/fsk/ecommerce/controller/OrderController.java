@@ -113,4 +113,17 @@ public class OrderController {
         List<UUID> orderIds = orderService.createBulkOrders(bulkRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(GenericResponse.success(orderIds, HttpStatus.CREATED.value(), SuccessMessage.CREATED));
     }
+
+    /**
+     * Pessimistic lock (SELECT FOR UPDATE) davranışını göstermek için test endpoint'i.
+     * Order PENDING durumda olmalı; varsayılan: CONFIRMED sonra PROCESSING.
+     */
+    @PostMapping("/{orderId}/test-concurrent-pessimistic-update")
+    public ResponseEntity<GenericResponse<OrderResponseDTO>> testConcurrentPessimisticUpdate(
+            @PathVariable UUID orderId,
+            @RequestParam(defaultValue = "CONFIRMED") OrderStatus status1,
+            @RequestParam(defaultValue = "PROCESSING") OrderStatus status2) {
+        OrderResponseDTO order = orderService.updateOrderStatusConcurrentlyWithPessimisticLock(orderId, status1, status2);
+        return ResponseEntity.ok(GenericResponse.success(order, HttpStatus.OK.value(), SuccessMessage.UPDATED));
+    }
 }

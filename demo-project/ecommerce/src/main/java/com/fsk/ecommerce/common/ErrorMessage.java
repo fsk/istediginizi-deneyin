@@ -15,7 +15,8 @@ public enum ErrorMessage {
     ORDER_NOT_FOUND("Order not found"),
     ORDER_ALREADY_CANCELLED("Order is already cancelled"),
     INVALID_STATUS_TRANSITION("Invalid status transition"),
-    OPTIMISTIC_LOCKING_FAILED("The entity has been modified by another transaction. Please refresh and try again.");
+    OPTIMISTIC_LOCKING_FAILED("The entity has been modified by another transaction. Please refresh and try again."),
+    MULTIPLE_BAG_FETCH("Cannot fetch multiple bag collections in a single query. Use separate queries or Set instead of List.");
 
     private final String message;
 

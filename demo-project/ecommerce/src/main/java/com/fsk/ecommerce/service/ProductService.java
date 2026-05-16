@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -63,7 +64,32 @@ public class ProductService {
         CompletableFuture.allOf(future1, future2).join();
     }
 
+    /**
+     * Bilinçli olarak eski (stale) version ile kaydetmeye çalışır; optimistic locking hatası üretir.
+     */
     @Transactional
+    public void updateProductWithStaleVersion(UUID productId, Integer quantityToReduce) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(productId));
+        Long staleVersion = product.getVersion();
+
+        ProductService productService = applicationContext.getBean(ProductService.class);
+        productService.bumpProductVersion(productId);
+
+        product.updateProduct(quantityToReduce);
+        product.setVersion(staleVersion);
+        productRepository.saveAndFlush(product);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void bumpProductVersion(UUID productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(productId));
+        product.updateProduct(1);
+        productRepository.saveAndFlush(product);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateProductInTransaction(UUID productId, Integer quantityToReduce, int threadNumber) {
         Product product = productRepository.findById(productId).orElseThrow(() -> new ProductNotFoundException(productId));
         try {

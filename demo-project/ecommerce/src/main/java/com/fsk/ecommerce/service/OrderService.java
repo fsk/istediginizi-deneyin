@@ -30,7 +30,9 @@ import com.fsk.ecommerce.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.data.domain.Page;
@@ -43,6 +45,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 @Service
@@ -58,6 +63,8 @@ public class OrderService {
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
     private final ProductMapper productMapper;
+    private final ApplicationContext applicationContext;
+    private final ExecutorService orderLockExecutor = Executors.newFixedThreadPool(10);
 
     @Transactional
     public UUID createOrderSync(OrderRequestDTO request) {
@@ -159,7 +166,7 @@ public class OrderService {
 
     @Transactional
     public OrderResponseDTO updateOrderStatus(UUID orderId, OrderStatusUpdateDTO statusUpdateDTO) {
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
         
         OrderStatus currentStatus = order.getStatus();
@@ -175,6 +182,42 @@ public class OrderService {
         
         log.info("Order {} status updated from {} to {}", orderId, currentStatus, newStatus);
         
+        return toOrderResponseDTO(order);
+    }
+
+    /**
+     * Pessimistic lock davranışını göstermek için: iki thread aynı order üzerinde sırayla lock alır.
+     */
+    public OrderResponseDTO updateOrderStatusConcurrentlyWithPessimisticLock(UUID orderId, OrderStatus status1, OrderStatus status2) {
+        OrderService orderService = applicationContext.getBean(OrderService.class);
+        CompletableFuture<OrderResponseDTO> future1 = CompletableFuture.supplyAsync(
+                () -> orderService.updateOrderStatusInNewTransaction(orderId, status1, 1),
+                orderLockExecutor);
+        CompletableFuture<OrderResponseDTO> future2 = CompletableFuture.supplyAsync(
+                () -> orderService.updateOrderStatusInNewTransaction(orderId, status2, 2),
+                orderLockExecutor);
+        future1.join();
+        return future2.join();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public OrderResponseDTO updateOrderStatusInNewTransaction(UUID orderId, OrderStatus newStatus, int threadNumber) {
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        OrderStatus currentStatus = order.getStatus();
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        if (!currentStatus.canTransitionTo(newStatus)) {
+            log.warn("Thread {}: Skipping invalid transition {} -> {}", threadNumber, currentStatus, newStatus);
+            return toOrderResponseDTO(order);
+        }
+        order.setStatus(newStatus);
+        order = orderRepository.save(order);
+        log.info("Thread {}: Order {} status updated to {} (pessimistic lock)", threadNumber, orderId, newStatus);
         return toOrderResponseDTO(order);
     }
 

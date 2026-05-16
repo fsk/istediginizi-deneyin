@@ -4,6 +4,7 @@ import com.fsk.ecommerce.common.ErrorMessage;
 import com.fsk.ecommerce.common.GenericResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.StaleStateException;
+import org.hibernate.loader.MultipleBagFetchException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -119,6 +120,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(GenericResponse.error(ErrorMessage.OPTIMISTIC_LOCKING_FAILED, HttpStatus.CONFLICT.value()));
+    }
+
+    @ExceptionHandler(MultipleBagFetchException.class)
+    public ResponseEntity<GenericResponse<Void>> handleMultipleBagFetchException(MultipleBagFetchException ex) {
+        log.error("Multiple bag fetch exception: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(GenericResponse.error(ErrorMessage.MULTIPLE_BAG_FETCH, HttpStatus.BAD_REQUEST.value()));
     }
 
     @ExceptionHandler(Exception.class)

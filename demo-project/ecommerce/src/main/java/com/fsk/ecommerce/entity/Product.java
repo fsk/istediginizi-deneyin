@@ -54,6 +54,10 @@ public class Product {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Version
+    @Column(nullable = false)
+    private Long version = 0L;
+
     public boolean checkQuantity(Integer quantity) {
         return stockQuantity > quantity;
     }
