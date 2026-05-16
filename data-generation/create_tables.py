@@ -9,6 +9,32 @@ def get_postgresql_connection():
     )
 
 
+def ensure_products_version_column(cur, conn):
+    """Product tablosunda optimistic locking için version kolonunu garanti eder."""
+    cur.execute("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'products' AND column_name = 'version'
+    """)
+    if cur.fetchone():
+        cur.execute("SELECT COUNT(*) FROM products WHERE version IS NULL")
+        null_count = cur.fetchone()[0]
+        if null_count > 0:
+            print(f"Updating {null_count} products with NULL version...")
+            cur.execute("UPDATE products SET version = 0 WHERE version IS NULL")
+            conn.commit()
+        return
+
+    print("Adding 'version' column to products table...")
+    cur.execute("""
+        ALTER TABLE products
+        ADD COLUMN version BIGINT DEFAULT 0 NOT NULL
+    """)
+    cur.execute("UPDATE products SET version = 0 WHERE version IS NULL")
+    conn.commit()
+    print("'version' column added successfully.")
+
+
 def create_tables():
     with get_postgresql_connection() as conn:
         with conn.cursor(row_factory=tuple_row) as cur:
@@ -116,9 +142,11 @@ def create_tables():
                     image_url VARCHAR(500),
                     sku VARCHAR(50) UNIQUE,
                     created_at TIMESTAMP NOT NULL,
-                    updated_at TIMESTAMP
+                    updated_at TIMESTAMP,
+                    version BIGINT NOT NULL DEFAULT 0
                 )
             """)
+            ensure_products_version_column(cur, conn)
             
             # 7. ORDERS table
             print("Creating orders table...")

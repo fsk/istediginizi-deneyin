@@ -1,6 +1,7 @@
 import psycopg
 from psycopg.rows import tuple_row
 from faker import Faker
+from create_tables import ensure_products_version_column
 import random
 import uuid
 from datetime import timedelta
@@ -409,6 +410,7 @@ def generate_data():
 
             # 3. PRODUCTS
             print("Generating products")
+            ensure_products_version_column(cur, conn)
             for _ in range(0, PRODUCT_COUNT, BATCH_SIZE):
                 batch = []
                 for _ in range(BATCH_SIZE):
@@ -427,15 +429,16 @@ def generate_data():
                         fake.image_url() if random.random() < 0.8 else None,
                         sku,
                         fake.date_time_between(start_date="-1y"),
-                        fake.date_time_between(start_date="-6m")
+                        fake.date_time_between(start_date="-6m"),
+                        0
                     ))
 
                 cur.executemany(
                     """
                     INSERT INTO products 
                     (product_id, name, price, stock_quantity, description, category, brand, 
-                     image_url, sku, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     image_url, sku, created_at, updated_at, version)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (sku) DO NOTHING
                     """,
                     batch
